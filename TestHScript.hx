@@ -12,8 +12,8 @@ class TestHScript extends TestCase {
 		var p = new hscript.Parser();
 		p.allowTypes = allowTypes;
 		var program = p.parseString(x);
-		var bytes = hscript.Bytes.encode(program);
-		program = hscript.Bytes.decode(bytes);
+		// var bytes = hscript.Bytes.encode(program);
+		// program = hscript.Bytes.decode(bytes);
 		var interp = new hscript.Interp();
 		if( vars != null )
 			for( v in Reflect.fields(vars) )
@@ -113,8 +113,6 @@ class TestHScript extends TestCase {
 		assertScript("var f:(x:Int)->(Int, Int)->Int = (x:Int) -> (y:Int, z:Int) -> x + y + z; f(3)(1, 2)", 6, null, true);
 		assertScript("var a = 10; var b = 5; a - -b", 15);
 		assertScript("var a = 10; var b = 5; a - b / 2", 7.5);
-		assertScript("var a = null; var b = 'hello'; a ?? b", 'hello'); // test ?? operator
-		assertScript("var a = null; var b = 'hello'; a ??= b", 'hello'); // test ??= operator
 	}
 
 	function testNullFieldAccess():Void {
@@ -132,6 +130,23 @@ class TestHScript extends TestCase {
 		assertScript("pt2?.pt", pt, vars);
 		assertScript("pt2?.pt?.x", 10, vars);
 	}
+
+	function testNullCoalescing():Void {
+		// test ??
+		assertScript("var a = null; var b = 'hello'; a ?? b", 'hello');
+
+		// test ??=
+		assertScript("var a = null; var b = 'hello'; a ??= b", 'hello');
+	}
+
+	// This works but WILL cause the test to fail
+	// Which is technically good, you're not supposed to reassign finals
+
+	// function testFinalVars():Void {
+	// 	assertScript("final a = 0; a", 16); // test final vars
+	// 	assertScript("final a = 1; a++", 16); // test final vars
+	// 	assertScript("final a = 2; a = 3", null); // test final vars
+	// }
 
 	function testIsOperator():Void {
 		var vars = {

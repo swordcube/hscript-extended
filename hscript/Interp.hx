@@ -34,7 +34,7 @@ class Interp {
 
 	#if haxe3
 	public var variables : Map<String,Dynamic>;
-	var locals : Map<String,{ r : Dynamic }>;
+	var locals : Map<String,{ r : Dynamic, ?const : Bool}>;
 	var binops : Map<String, Expr -> Expr -> Dynamic >;
 	#else
 	public var variables : Hash<Dynamic>;
@@ -44,7 +44,7 @@ class Interp {
 
 	var depth : Int;
 	var inTry : Bool;
-	var declared : Array<{ n : String, old : { r : Dynamic } }>;
+	var declared : Array<{ n : String, old : { r : Dynamic, ?const : Bool } }>;
 	var returnValue : Dynamic;
 
 	#if hscriptPos
@@ -145,9 +145,11 @@ class Interp {
 		case EIdent(id):
 			var l = locals.get(id);
 			if( l == null )
-				setVar(id,v)
-			else
-				l.r = v;
+				setVar(id,v);
+			else {
+				if ( l.const != true ) l.r = v;
+				else error(ECustom("Cannot reassign final, for constant expression -> "+id));
+			}
 		case EField(e,f):
 			v = set(expr(e),f,v);
 		case EArray(e, index):
@@ -179,8 +181,10 @@ class Interp {
 			v = fop(expr(e1),expr(e2));
 			if( l == null )
 				setVar(id,v)
-			else
-				l.r = v;
+			else {
+				if ( l.const != true ) l.r = v;
+				else error(ECustom("Cannot reassign final, for constant expression -> "+id));
+			}
 		case EField(e,f):
 			var obj = expr(e);
 			v = fop(get(obj,f),expr(e2));
@@ -211,11 +215,15 @@ class Interp {
 		case EIdent(id):
 			var l = locals.get(id);
 			var v : Dynamic = (l == null) ? resolve(id) : l.r;
+			function setTo(v) {
+				if ( l.const != true ) l.r = v;
+				else error(ECustom("Cannot reassign final, for constant expression -> "+id));
+			}
 			if( prefix ) {
 				v += delta;
-				if( l == null ) setVar(id,v) else l.r = v;
+				if( l == null ) setVar(id,v) else setTo(v);
 			} else
-				if( l == null ) setVar(id,v + delta) else l.r = v + delta;
+				if( l == null ) setVar(id,v + delta) else setTo(v + delta);
 			return v;
 		case EField(e,f):
 			var obj = expr(e);
@@ -340,9 +348,14 @@ class Interp {
 			}
 		case EIdent(id):
 			return resolve(id);
-		case EVar(n,_,e):
+		case EVar(n,t,v), EFinal(n,t,v):
+			// i can't compare it on the spot -Crow
+			var isConst : Bool = switch(e) {
+				case EFinal(n,t,v): true;
+				default: false;
+			}
 			declared.push({ n : n, old : locals.get(n) });
-			locals.set(n,{ r : (e == null)?null:expr(e) });
+			locals.set(n,{ r : (v == null)?null:expr(v), const : isConst});
 			return null;
 		case EParent(e):
 			return expr(e);
